@@ -1,19 +1,22 @@
 
 #include <SoftwareSerial.h>
 // IMPORT ALL REQUIRED LIBRARIES
-
+#include <NewPing.h>
+#include <ArduinoJson.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
    
 //**********ENTER IP ADDRESS OF SERVER******************//
 
-#define HOST_IP     "localhost"       // REPLACE WITH IP ADDRESS OF SERVER ( IP ADDRESS OF COMPUTER THE BACKEND IS RUNNING ON) 
+#define HOST_IP     "172.16.193.146"       // REPLACE WITH IP ADDRESS OF SERVER ( IP ADDRESS OF COMPUTER THE BACKEND IS RUNNING ON) 
 #define HOST_PORT   "8080"            // REPLACE WITH SERVER PORT (BACKEND FLASK API PORT)
 #define route       "api/update"      // LEAVE UNCHANGED 
-#define idNumber    "620012345"       // REPLACE WITH YOUR ID NUMBER 
+#define idNumber    "620161390"       // REPLACE WITH YOUR ID NUMBER 
 
 // WIFI CREDENTIALS
-#define SSID        "YOUR WIFI"      // "REPLACE WITH YOUR WIFI's SSID"   
-#define password    "YOUR PASSWORD"  // "REPLACE WITH YOUR WiFi's PASSWORD" 
+#define SSID        "MonaConnect"      // "REPLACE WITH YOUR WIFI's SSID"   
+#define password    ""  // "REPLACE WITH YOUR WiFi's PASSWORD" 
 
 #define stay        100
  
@@ -23,15 +26,23 @@
 #define espRX         10
 #define espTX         11
 #define espTimeout_ms 300
+#define Trig           2
+#define Echo           3
+
 
  
  
 /* Declare your functions below */
+void espInit();
+void espSend(char command[] );
+void espUpdate(char mssg[]);
+double getWaterHeight();
+
  
  
 
 SoftwareSerial esp(espRX, espTX); 
- 
+ NewPing sonar(Trig, Echo); 
 
 void setup(){
 
@@ -47,8 +58,26 @@ void setup(){
 void loop(){ 
    
   // send updates with schema ‘{"id": "student_id", "type": "ultrasonic", "radar": 0, "waterheight": 0, "reserve": 0, "percentage": 0}’
+  double radar = sonar.ping_in() - 16.737;
+  double waterHeight = max_height - radar;
 
+  double reserve = calcReserve(waterHeight);
+  double percentage = (waterHeight / max_height) * 100;
+  
+  StaticJsonDocument<290> doc;
+  char mssg[290] = {0};
 
+  Serial.println(radar);
+
+  doc["id"] = idNumber;
+  doc["type"] = "ultrasonic";
+  doc["radar"] = radar;
+  doc["waterheight"] = waterHeight;
+  doc["reserve"] = reserve;
+  doc["percentage"] = percentage;
+
+  serializeJson(doc, mssg);
+  espUpdate(mssg);
 
   delay(1000);  
 }
@@ -105,5 +134,7 @@ void espInit(){
 }
 
 //***** Design and implement all util functions below ******
- 
+ double calcReserve(float height){
+  return (M_PI * pow(rad,2) * height) / 231.0;
+}
 
